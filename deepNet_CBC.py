@@ -48,58 +48,50 @@ def read_data(index, gain):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv1d(1, 32, 32)
+        self.conv1 = nn.Conv1d(1, 4096, 64)
         self.pool = nn.MaxPool1d(4)
-        self.fc1 = nn.Linear(3840, 1)
+        self.fc1 = nn.Linear(4128768, 1)
         self.out = nn.Sigmoid()
 
     def forward(self, x):
-        x = x.expand(1, 1, 513)
+        x = x.expand(1, 1, 4096)
         x = self.pool(F.relu(self.conv1(x)))
-        x = x.view(-1, 3840)
+        x = x.view(-1, 4128768)
         x = self.fc1(x)
         x = self.out(x)
         return x
 
 
 # Gain to train the CNN on
-gain = 0.5
+gain = 0.001
 
-x_train = np.zeros(513)
+x_train = np.zeros(4096)
 y_train = np.array(0)
-x_test = np.zeros(513)
+x_test = np.zeros(4096)
 y_test = np.array(0)
 
 # Splitting data into test and training sets
-for i in range(1, len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1):
+for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
     if i <= len(os.listdir('./CBC Data/Gain' + str(gain) + '/')) / 4:
 
         tim, wave_data, noise_data = read_data(i, gain)
 
-        # Power spectra
-        f, P1 = signal.welch(noise_data, fs=4096, nperseg=4096/4)
-        f, P2 = signal.welch(wave_data, fs=4096, nperseg=4096/4)
-
         with np.errstate(divide='raise'):
             # Data stacking, 1 GW, 0 noise
-            x_train = np.column_stack((x_train, np.log10(P2.T)))
+            x_train = np.column_stack((x_train, wave_data))
             y_train = np.append(y_train, 1)
-            x_train = np.column_stack((x_train, np.log10(P1.T)))
+            x_train = np.column_stack((x_train, noise_data))
             y_train = np.append(y_train, 0)
 
     if i > len(os.listdir('./CBC Data/Gain' + str(gain) + '/')) / 4:
 
         tim, wave_data, noise_data = read_data(i, gain)
 
-        # Power spectra
-        f, P1 = signal.welch(noise_data, fs=4096, nperseg=4096/4)
-        f, P2 = signal.welch(wave_data, fs=4096, nperseg=4096/4)
-
         with np.errstate(divide='raise'):
             # Data stacking, 1 GW, 0 noise
-            x_test = np.column_stack((x_test, np.log10(P2.T)))
+            x_test = np.column_stack((x_test, wave_data))
             y_test = np.append(y_test, 1)
-            x_test = np.column_stack((x_test, np.log10(P1.T)))
+            x_test = np.column_stack((x_test, noise_data))
             y_test = np.append(y_test, 0)
 
 
@@ -112,7 +104,7 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 # Net initialization, loss and optimizer definition
 net = Net()
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=10**-6, momentum=0)
+optimizer = optim.SGD(net.parameters(), lr=10**-4, momentum=0)
 
 # Net training
 epochLim = 25
@@ -171,18 +163,15 @@ for gain in gainList:
     x_test = np.zeros(513)
     y_test = np.array(0)
 
-    for i in range(1, len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1):
+    for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
 
             tim, wave_data, noise_data = read_data(i, gain)
-            # Power spectra
-            f, P1 = signal.welch(noise_data, fs=4096, nperseg=4096/4)
-            f, P2 = signal.welch(wave_data, fs=4096, nperseg=4096/4)
 
             with np.errstate(divide='raise'):
                 # Data stacking, 1 GW, 0 noise
-                x_test = np.column_stack((x_test, np.log10(P2.T)))
+                x_test = np.column_stack((x_test, wave_data))
                 y_test = np.append(y_test, 1)
-                x_test = np.column_stack((x_test, np.log10(P1.T)))
+                x_test = np.column_stack((x_test, noise_data))
                 y_test = np.append(y_test, 0)
 
     # Normalize and convert to tensor
@@ -202,149 +191,22 @@ for gain in gainList:
 
     gainIndex += 1
 
-
-# Search data with known GW events
-eventCounter = 0
-for filename in os.listdir('GW Events'):
-
-    # Read data
-    f = h5py.File('GW Events/'+filename, 'r')
-    data = np.array(f['strain']['Strain'])
-    f.close()
-
-    predicted = 0.0
-    # Loop in 1 sec chunks
-    for i in range(0, len(data), 4096):
-        # Power spectra
-        f, P = signal.welch(data[i:i+4096], fs=4096, nperseg=4096/4)
-        # Normalize and turn into tensor
-        x = torch.from_numpy((np.log10(P) - np.mean(np.log10(P))) / np.std(np.log10(P))).float()
-        # Apply net
-        with torch.no_grad():
-            output = net(x)
-            predicted += round(float(output.data))
-
-        if (round(float(output.data)) == 1.0):
-            f = open('Found Events/event' + str(eventCounter) + '.dat', 'w+')
-
-            for j in range(4096):
-                f.write(str(data[i+j]) + '\n')
-
-            f.close()
-            eventCounter += 1
-
-    print('GW events found: ' + str(predicted))
-
-# Apply a selection of simple methods from sklearn to the data to compare
-
-NNAcc = np.zeros(gainList.size)
-NearNAcc = np.zeros(gainList.size)
-logRegAcc = np.zeros(gainList.size)
-SVMAcc = np.zeros(gainList.size)
-
-gainIndex = 0
-
-gain = 0.5
-
-x_train = np.zeros(513)
-y_train = np.array(0)
-for i in range(1, len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1):
-    if i <= len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/4:
-
-        tim, wave_data, noise_data = read_data(i, gain)
-
-        # Power spectra
-        f, P1 = signal.welch(noise_data, fs=4096, nperseg=4096/4)
-        f, P2 = signal.welch(wave_data, fs=4096, nperseg=4096/4)
-
-        with np.errstate(divide='raise'):
-            # Data stacking, 1 GW, -1 noise
-            x_train = np.column_stack((x_train, np.log10(P2.T)))
-            y_train = np.append(y_train, 1)
-            x_train = np.column_stack((x_train, np.log10(P1.T)))
-            y_train = np.append(y_train, -1)
-
-# Cut off first zero, normalize, and turn into tensor
-x_train = (x_train[:, 1:].T - np.mean(x_train[:, 1:], axis=1)) / np.std(x_train)
-y_train = y_train[1:]
-
-# Train and test algorithms
-logReg = LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial', max_iter=10000)
-logReg.fit(x_train, y_train.ravel())
-
-svmAlg = svm.SVC(gamma='scale')
-svmAlg.fit(x_train, y_train.ravel())
-
-NearN = KNeighborsClassifier(20)
-NearN.fit(x_train, y_train.ravel())
-
-NN = MLPClassifier(max_iter=10000)
-NN.fit(x_train, y_train.ravel())
-
-for gain in gainList:
-
-    print(str(gainList[gainIndex]))
-    x_train = np.zeros(513)
-    y_train = np.array(0)
-    x_test = np.zeros(513)
-    y_test = np.array(0)
-    for i in range(1, len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1):
-
-        tim, wave_data, noise_data = read_data(i, gain)
-
-        # Power spectra
-        f, P1 = signal.welch(noise_data, fs=4096, nperseg=4096/4)
-        f, P2 = signal.welch(wave_data, fs=4096, nperseg=4096/4)
-
-        with np.errstate(divide='raise'):
-            # Data stacking, 1 GW, -1 noise
-            x_test = np.column_stack((x_test, np.log10(P2.T)))
-            y_test = np.append(y_test, 1)
-            x_test = np.column_stack((x_test, np.log10(P1.T)))
-            y_test = np.append(y_test, -1)
-
-    # Cut off first zero, normalize, and turn into tensor
-    x_test = (x_test[:, 1:].T - np.mean(x_test[:, 1:], axis=1)) / np.std(x_test)
-    y_test = y_test[1:]
-
-    # Train and test algorithms
-    logRegAcc[gainIndex] = logReg.score(x_test, y_test)
-
-    SVMAcc[gainIndex] = svmAlg.score(x_test, y_test)
-
-    NearNAcc[gainIndex] = NearN.score(x_test, y_test)
-
-    NNAcc[gainIndex] = NN.score(x_test, y_test)
-
-    print(NNAcc[gainIndex])
-
-    gainIndex += 1
-
-
 plt.figure()
-plt.plot(gainList, logRegAcc)
-plt.plot(gainList, SVMAcc)
-plt.plot(gainList, NearNAcc)
-plt.plot(gainList, NNAcc)
 plt.plot(gainList, gainAcc)
 plt.xscale('log')
 plt.ylabel('Accuracy')
 plt.xlabel('Gain')
-plt.legend(('Logistic Regression', 'SVM', 'Nearest Neighbor', 'Neural Network', 'Convolutional Neural Network'))
+plt.legend(('Convolutional Neural Network'))
 plt.grid(True)
 plt.draw()
 plt.savefig('AccuracyCBC.pdf')
 
 plt.figure()
-plt.plot(1/gainList, logRegAcc)
-plt.plot(1/gainList, SVMAcc)
-plt.plot(1/gainList, NearNAcc)
-plt.plot(1/gainList, NNAcc)
 plt.plot(1/gainList, gainAcc)
 plt.xscale('log')
 plt.ylabel('Accuracy')
 plt.xlabel('Distance (Mpc)')
-plt.legend(('Logistic Regression', 'SVM', 'Nearest Neighbor', 'Neural Network', 'Convolutional Neural Network'))
+plt.legend(('Convolutional Neural Network'))
 plt.grid(True)
 plt.draw()
 plt.savefig('AccuracyDistanceCBC.pdf')
