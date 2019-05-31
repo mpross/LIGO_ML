@@ -7,10 +7,6 @@ import torch.optim as optim
 from scipy import signal
 import os
 import h5py
-from sklearn.linear_model import LogisticRegression
-from sklearn import svm
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
 
 
 # Data reading
@@ -48,16 +44,26 @@ def read_data(index, gain):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv1d(1, 4096, 64)
+        self.conv1 = nn.Conv1d(1, 4096, 32)
+        self.conv2 = nn.Conv1d(4096, 1024, 16)
+        self.conv3 = nn.Conv1d(1024, 256, 8)
+        self.conv4 = nn.Conv1d(256, 64, 4)
         self.pool = nn.MaxPool1d(4)
-        self.fc1 = nn.Linear(4128768, 1)
+        self.fc1 = nn.Linear(896, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)
         self.out = nn.Sigmoid()
 
     def forward(self, x):
         x = x.expand(1, 1, 4096)
-        x = self.pool(F.relu(self.conv1(x)))
-        x = x.view(-1, 4128768)
-        x = self.fc1(x)
+        x = F.relu(self.pool(self.conv1(x)))
+        x = F.relu(self.pool(self.conv2(x)))
+        x = F.relu(self.pool(self.conv3(x)))
+        x = F.relu(self.pool(self.conv4(x)))
+        x = x.view(-1, 896)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         x = self.out(x)
         return x
 
@@ -104,10 +110,10 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 # Net initialization, loss and optimizer definition
 net = Net()
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=10**-4, momentum=0)
+optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.5)
 
 # Net training
-epochLim = 25
+epochLim = 10
 
 testAcc = np.zeros(epochLim)
 trainAcc = np.zeros(epochLim)
@@ -124,9 +130,9 @@ for epoch in range(epochLim):
         optimizer.step()
 
         running_loss += loss.item()
-        if i % 100 == 99:
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 100))
+        if i % 10 == 9:
+            print('[%d, %5d] loss: %.5f' %
+                (epoch + 1, i + 1, running_loss))
             running_loss = 0.0
 
     correct = 0.0
@@ -152,64 +158,65 @@ for epoch in range(epochLim):
 print('Finished Training')
 
 # Apply trained net to other data sets with different gains
-gainList = np.array((0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
-                    0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
-                    0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 10.0))
-gainAcc = np.zeros(gainList.size)
-gainIndex = 0
+# gainList = np.array((0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
+#                   0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
+#                   0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 10.0))
+# gainList = 0.001
+# gainAcc = np.zeros(gainList.size)
+# gainIndex = 0
+#
+# for gain in gainList:
+#
+#     x_test = np.zeros(4096)
+#     y_test = np.array(0)
+#
+#     for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
+#
+#             tim, wave_data, noise_data = read_data(i, gain)
+#
+#             with np.errstate(divide='raise'):
+#                 # Data stacking, 1 GW, 0 noise
+#                 x_test = np.column_stack((x_test, wave_data))
+#                 y_test = np.append(y_test, 1)
+#                 x_test = np.column_stack((x_test, noise_data))
+#                 y_test = np.append(y_test, 0)
+#
+#     # Normalize and convert to tensor
+#     test_data = torch.from_numpy((x_test[:, 1:].T - np.mean(x_test[:, 1:], axis=1)) / np.std(x_test[:, 1:])).float()
+#     test_labels = torch.from_numpy(y_test[1:]).float()
+#
+#     correct = 0.0
+#     with torch.no_grad():
+#         for j in range(len(test_data)):
+#             output = net(test_data[j])
+#             predicted = round(float(output.data))
+#             correct += (predicted == test_labels[j]).item()
+#
+#     print('Accuracy on '+str(1/gain)+' Mpc dataset: %d %%' % (
+#             100 * correct / test_labels.size(0)))
+#     gainAcc[gainIndex] = correct / test_labels.size(0)
+#
+#     gainIndex += 1
+#
+# plt.figure()
+# plt.plot(gainList, gainAcc)
+# plt.xscale('log')
+# plt.ylabel('Accuracy')
+# plt.xlabel('Gain')
+# plt.legend(('Convolutional Neural Network'))
+# plt.grid(True)
+# plt.draw()
+# plt.savefig('AccuracyCBC.pdf')
 
-for gain in gainList:
-
-    x_test = np.zeros(513)
-    y_test = np.array(0)
-
-    for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
-
-            tim, wave_data, noise_data = read_data(i, gain)
-
-            with np.errstate(divide='raise'):
-                # Data stacking, 1 GW, 0 noise
-                x_test = np.column_stack((x_test, wave_data))
-                y_test = np.append(y_test, 1)
-                x_test = np.column_stack((x_test, noise_data))
-                y_test = np.append(y_test, 0)
-
-    # Normalize and convert to tensor
-    test_data = torch.from_numpy((x_test[:, 1:].T - np.mean(x_test[:, 1:], axis=1)) / np.std(x_test[:, 1:])).float()
-    test_labels = torch.from_numpy(y_test[1:]).float()
-
-    correct = 0.0
-    with torch.no_grad():
-        for j in range(len(test_data)):
-            output = net(test_data[j])
-            predicted = round(float(output.data))
-            correct += (predicted == test_labels[j]).item()
-
-    print('Accuracy on '+str(1/gain)+' Mpc dataset: %d %%' % (
-            100 * correct / test_labels.size(0)))
-    gainAcc[gainIndex] = correct / test_labels.size(0)
-
-    gainIndex += 1
-
-plt.figure()
-plt.plot(gainList, gainAcc)
-plt.xscale('log')
-plt.ylabel('Accuracy')
-plt.xlabel('Gain')
-plt.legend(('Convolutional Neural Network'))
-plt.grid(True)
-plt.draw()
-plt.savefig('AccuracyCBC.pdf')
-
-plt.figure()
-plt.plot(1/gainList, gainAcc)
-plt.xscale('log')
-plt.ylabel('Accuracy')
-plt.xlabel('Distance (Mpc)')
-plt.legend(('Convolutional Neural Network'))
-plt.grid(True)
-plt.draw()
-plt.savefig('AccuracyDistanceCBC.pdf')
+# plt.figure()
+# plt.plot(1/gainList, gainAcc)
+# plt.xscale('log')
+# plt.ylabel('Accuracy')
+# plt.xlabel('Distance (Mpc)')
+# plt.legend(('Convolutional Neural Network'))
+# plt.grid(True)
+# plt.draw()
+# plt.savefig('AccuracyDistanceCBC.pdf')
 
 plt.figure()
 plt.plot(range(epochLim), trainAcc)
