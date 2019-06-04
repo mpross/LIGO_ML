@@ -12,7 +12,7 @@ import h5py
 # Data reading
 def read_data(index, gain):
 
-    f = open('CBC Data/Gain'+str(gain)+'/signal' + str(index) + '.dat', 'r')
+    f = open('NS Data/Gain'+str(gain)+'/signal' + str(index) + '.dat', 'r')
 
     lines = f.read().split('\n')
     l = lines.__len__() - 1
@@ -28,7 +28,7 @@ def read_data(index, gain):
 
     f.close()
 
-    f = open('CBC Data/Gain'+str(gain)+'/noise' + str(index) + '.dat', 'r')
+    f = open('NS Data/Gain'+str(gain)+'/noise' + str(index) + '.dat', 'r')
     lines = f.read().split('\n')
     l = lines.__len__() - 1
     for i in range(0, l):
@@ -69,7 +69,7 @@ class Net(nn.Module):
 
 
 # Gain to train the CNN on
-gain = 0.001
+gain = 1
 
 x_train = np.zeros(4096)
 y_train = np.array(0)
@@ -77,8 +77,8 @@ x_test = np.zeros(4096)
 y_test = np.array(0)
 
 # Splitting data into test and training sets
-for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
-    if i <= len(os.listdir('./CBC Data/Gain' + str(gain) + '/')) / 4:
+for i in range(1, int(len(os.listdir('./NS Data/Gain'+str(gain)+'/'))/2+1)):
+    if i <= len(os.listdir('./NS Data/Gain' + str(gain) + '/')) / 4:
 
         tim, wave_data, noise_data = read_data(i, gain)
 
@@ -89,7 +89,7 @@ for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
             x_train = np.column_stack((x_train, noise_data))
             y_train = np.append(y_train, 0)
 
-    if i > len(os.listdir('./CBC Data/Gain' + str(gain) + '/')) / 4:
+    if i > len(os.listdir('./NS Data/Gain' + str(gain) + '/')) / 4:
 
         tim, wave_data, noise_data = read_data(i, gain)
 
@@ -110,7 +110,7 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 # Net initialization, loss and optimizer definition
 net = Net()
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.5)
+optimizer = optim.SGD(net.parameters(), lr=0.5, momentum=0.1)
 
 # Net training
 epochLim = 10
@@ -170,7 +170,7 @@ print('Finished Training')
 #     x_test = np.zeros(4096)
 #     y_test = np.array(0)
 #
-#     for i in range(1, int(len(os.listdir('./CBC Data/Gain'+str(gain)+'/'))/2+1)):
+#     for i in range(1, int(len(os.listdir('./NS Data/Gain'+str(gain)+'/'))/2+1)):
 #
 #             tim, wave_data, noise_data = read_data(i, gain)
 #
@@ -206,7 +206,7 @@ print('Finished Training')
 # plt.legend(('Convolutional Neural Network'))
 # plt.grid(True)
 # plt.draw()
-# plt.savefig('AccuracyCBC.pdf')
+# plt.savefig('AccuracyNS.pdf')
 
 # plt.figure()
 # plt.plot(1/gainList, gainAcc)
@@ -216,7 +216,7 @@ print('Finished Training')
 # plt.legend(('Convolutional Neural Network'))
 # plt.grid(True)
 # plt.draw()
-# plt.savefig('AccuracyDistanceCBC.pdf')
+# plt.savefig('AccuracyDistanceNS.pdf')
 
 plt.figure()
 plt.plot(range(epochLim), trainAcc)
@@ -226,5 +226,5 @@ plt.ylabel('Accuracy')
 plt.xlabel('Epoch')
 plt.grid(True)
 plt.draw()
-plt.savefig('NNTrainingCBC.pdf')
+plt.savefig('NNTrainingNS.pdf')
 plt.show()
