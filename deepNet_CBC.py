@@ -110,7 +110,7 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 # Net initialization, loss and optimizer definition
 net = Net()
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=0.5, momentum=0.1)
+optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.05)
 
 # Net training
 epochLim = 10
