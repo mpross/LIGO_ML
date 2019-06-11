@@ -116,10 +116,10 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 # net = Net()
 net = torch.load("1Mpc_BNS_CNN.pb")
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=5e-5, momentum=1e-5)
+optimizer = optim.SGD(net.parameters(), lr=5e-5, momentum=5e-6)
 
 # Net training
-epochLim = 10
+epochLim = 100
 
 testAcc = np.zeros(epochLim)
 trainAcc = np.zeros(epochLim)
@@ -167,8 +167,8 @@ if max(testAcc)>0.5:
     torch.save(net, str(1/gainTrain)+'Mpc_BNS_CNN.pb')
 
 # Apply trained net to other data sets with different gains
-# gainList = np.array((0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0))
-gainList = np.array((0.01, 0.02, 0.03, 1.0))
+gainList = np.array((0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0))
+
 gainAcc = np.zeros(gainList.size)
 gainIndex = 0
 
