@@ -44,7 +44,7 @@ def read_data(index, gain):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        # self.conv1 = nn.Conv1d(1, 4096, 32)
+        # self.conv1 = nn.Conv1d(1, 1, 4096)
         # self.conv2 = nn.Conv1d(4096, 1024, 16)
         # self.conv3 = nn.Conv1d(1024, 256, 8)
         # self.conv4 = nn.Conv1d(256, 64, 4)
@@ -66,7 +66,7 @@ class Net(nn.Module):
         # x = F.relu(self.pool(self.conv3(x)))
         # x = F.relu(self.pool(self.conv4(x)))
         x = x.view(-1, 4096)
-        x = F.relu(self.fc1(x))
+        x = self.fc1(x)
         # x = F.relu(self.fc2(x))
         # x = self.fc3(x)
         x = self.out(x)
