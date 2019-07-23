@@ -5,7 +5,7 @@ from sklearn.decomposition import PCA
 
 def read_data(index):
 
-    f = open('NS Data/Gain0.01/signal' + str(index) + '.dat', 'r')
+    f = open('NS Data/Gain1.0/signal' + str(index) + '.dat', 'r')
 
     lines = f.read().split('\n')
     l = lines.__len__() - 1
@@ -19,7 +19,7 @@ def read_data(index):
 
     f.close()
 
-    f = open('NS Data/Gain0.01/noise' + str(index) + '.dat', 'r')
+    f = open('NS Data/Gain1.0/noise' + str(index) + '.dat', 'r')
     lines = f.read().split('\n')
     for i in range(0, l):
         noise_data[i] = float(lines[i].split(' ')[1])
@@ -30,10 +30,11 @@ def read_data(index):
 
 
 
-time, wave_data, noise_data = read_data(np.random.randint(1,1000))
+time, wave_data, noise_data = read_data(3)#np.random.randint(1,1000)
 
+time = np.linspace(1, 4096, 4096).T/4096;
 
-sampF = 1/(time[1]-time[0])
+sampF = 4096.0
 
 plt.figure(1)
 plt.plot(time, wave_data, time, noise_data)
@@ -49,24 +50,24 @@ plt.ylabel('Strain')
 plt.grid(True,'both')
 plt.draw()
 
-f, t, Sxx = signal.spectrogram(wave_data, sampF, 'hann', 100, 90)
+f, t, Sxx = signal.spectrogram(wave_data, sampF,'hann',512,500)
 
 plt.figure(2)
-plt.pcolormesh(t, f, np.log10(Sxx))
+plt.pcolormesh(t, f, (Sxx),vmax=4*10**-45)
 plt.ylabel('Frequency (Hz)')
 plt.xlabel('Time (sec)')
 plt.yscale('log')
-plt.ylim([10, 10**3])
+plt.ylim([10**2, 10**3])
 plt.draw()
 
-f, t, Sxx = signal.spectrogram(noise_data, sampF, 'hann', 100, 90)
+f, t, Sxx = signal.spectrogram(noise_data, sampF,'hann',512,500)
 
 plt.figure(3)
-plt.pcolormesh(t, f, np.log10(Sxx))
+plt.pcolormesh(t, f, (Sxx),vmax=4*10**-45)
 plt.ylabel('Frequency (Hz)')
 plt.xlabel('Time (sec)')
 plt.yscale('log')
-plt.ylim([10, 10**3])
+plt.ylim([10**2, 10**3])
 plt.draw()
 
 plt.figure(4)

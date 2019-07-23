@@ -66,7 +66,7 @@ def data_cut(x_data, x_time, seconds):
 
     # Cuts x down to the same size as y with some random offset
 
-    length = int(seconds/(x_time[2]-x_time[1]))
+    length = int(seconds)*4096
     offset = np.random.randint(0, x_data.size-length)
 
     out_data = x_data[offset:length+offset]
@@ -75,8 +75,9 @@ def data_cut(x_data, x_time, seconds):
     return out_time, out_data
 
 # gainList = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-gainList = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0]
-
+# gainList = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0]
+gainList = [0.001, 0.003, 0.006, 0.009, 0.01, 0.03, 0.06, 0.09, 0.1, 1.0]
+# gainList=[0.02];
 # start = int(sys.argv[1])
 # end = int(sys.argv[2])
 
@@ -93,19 +94,19 @@ for gain in gainList:
             LIGO_time, LIGO_data = read_ligo_data()
 
         # wave_time, wave_data = data_match(gain*waveform_data, waveform_time, LIGO_time)
-        # noise_time, noise_data = data_cut(LIGO_data, LIGO_time, 1)
+        noise_time, noise_data = data_cut(LIGO_data, LIGO_time, 1)
 
         f=open('NS Data/Gain'+str(gain)+'/signal'+str(i)+'.dat', 'w+')
 
         for j in range(4096):
-            f.write(str(LIGO_time[j]) + ' ' + str(LIGO_data[j] + gain*waveform_data[j]) + '\n')
+            f.write(str(noise_time[j]) + ' ' + str(noise_data[j] + gain*waveform_data[j]) + '\n')
 
         f.close()
 
         f = open('NS Data/Gain'+str(gain)+'/noise' + str(i) + '.dat', 'w+')
 
         for j in range(4096):
-            f.write(str(LIGO_time[j]) + ' ' + str(LIGO_data[j]) + '\n')
+            f.write(str(noise_time[j]) + ' ' + str(noise_data[j]) + '\n')
 
         f.close()
 

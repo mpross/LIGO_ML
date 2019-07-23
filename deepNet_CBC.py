@@ -44,37 +44,41 @@ def read_data(index, gain):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        # self.conv1 = nn.Conv1d(1, 1, 4096)
-        # self.conv2 = nn.Conv1d(4096, 1024, 16)
-        # self.conv3 = nn.Conv1d(1024, 256, 8)
-        # self.conv4 = nn.Conv1d(256, 64, 4)
+        # self.conv1 = nn.Conv1d(1, 4096, 4096)
+        # self.conv2 = nn.Conv1d(4096, 2048, 2048)
+        # self.conv3 = nn.Conv1d(2048, 1024, 1024)
+        # self.conv4 = nn.Conv1d(1024, 512, 512)
         # self.pool = nn.MaxPool1d(4)
         # self.fc1 = nn.Linear(896, 128)
         # self.fc2 = nn.Linear(128, 64)
         # self.fc3 = nn.Linear(64, 1)
         # self.out = nn.Sigmoid()
-
-        self.conv1=nn.Conv1d(1, 1, 4096)
+        #
+        self.conv1 = nn.Conv1d(1, 4096, 512)
+        # self.conv2 = nn.Conv1d(4096, 512, 512)
         self.pool = nn.MaxPool1d(4)
-        self.fc1 = nn.Linear(4096, 1)
+        self.fc1 = nn.Linear(3670016, 1)
         self.out = nn.Sigmoid()
 
     def forward(self, x):
         x = x.expand(1, 1, 4096)
         x = F.relu(self.pool(self.conv1(x)))
         # x = F.relu(self.pool(self.conv2(x)))
+        # print(x.shape)
         # x = F.relu(self.pool(self.conv3(x)))
+        # print(x.shape)
         # x = F.relu(self.pool(self.conv4(x)))
-        x = x.view(-1, 4096)
+        # print(x.shape)
+        x = x.view(-1, 3670016)
         x = self.fc1(x)
-        # x = F.relu(self.fc2(x))
+        # x = self.fc2(x)
         # x = self.fc3(x)
         x = self.out(x)
         return x
 
 
 # Gain to train the CNN on
-gainTrain = 0.01
+gainTrain = 0.02
 
 x_train = np.zeros(4096)
 y_train = np.array(0)
@@ -114,9 +118,11 @@ test_labels = torch.from_numpy(y_test[1:]).float()
 
 # Net initialization, loss and optimizer definition
 # net = Net()
-net = torch.load("1Mpc_BNS_CNN.pb")
+net = torch.load("1.0Mpc_BNS_CNN.pb")
 criterion = nn.BCELoss()
-optimizer = optim.SGD(net.parameters(), lr=5e-5, momentum=5e-6)
+# optimizer = optim.SGD(net.parameters(), lr=5e-4, momentum=5e-5)
+optimizer = optim.SGD(net.parameters(), lr=100, momentum=1)
+
 
 # Net training
 epochLim = 100
@@ -167,8 +173,8 @@ if max(testAcc)>0.5:
     torch.save(net, str(1/gainTrain)+'Mpc_BNS_CNN.pb')
 
 # Apply trained net to other data sets with different gains
-gainList = np.array((0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0))
-
+# gainList = np.array((0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 1.0))
+gainList = np.array((0.001, 0.005, 0.006, 0.01, 0.05, 0.1, 1.0))
 gainAcc = np.zeros(gainList.size)
 gainIndex = 0
 
